@@ -23,7 +23,7 @@ Restart Claude Code afterwards. Needs `python3` on PATH; macOS and Linux only (t
 ## What a session looks like
 
 1. **You give the chair a task.**
-2. **It asks questions** — one per message, each derived from your last answer, until nothing that would change the work is still open.
+2. **It asks questions** — all of them at the start, in rounds, each round derived from your last answers, until no question is left open and nothing that would change the work is still a guess.
 3. **It writes the ledger** — every requirement as one checkbox line in `./.workflow/LEDGER.md`.
 4. **It delegates** — Sonnet for volume, Opus for hard slices, effort sized per task.
 5. **A fresh agent verifies** the close, and only it ticks the last box.
@@ -96,8 +96,8 @@ This is the part that has teeth. Each gate fences one measured failure.
 ┌───┬────────────────┬──────────────────────────────┬──────────────────────────────────┐
 │ # │ Gate           │ Fires when                   │ What unblocks it                 │
 ├───┼────────────────┼──────────────────────────────┼──────────────────────────────────┤
-│ 1 │ Clarify        │ a spawn over the threshold,  │ a non-empty `## Clarified`       │
-│   │ (PreToolUse)   │ ledger has no answers in it  │ section at the top of the ledger │
+│ 1 │ Clarify        │ a spawn over the threshold,  │ `## Clarified` holding answered  │
+│   │ (PreToolUse)   │ ledger has no real answers   │ `Q -> A` lines and a `Branch:`   │
 │ 2 │ Spawn          │ spawn prompt > 1500 chars,   │ any `.workflow/LEDGER*.md` with  │
 │   │ (PreToolUse)   │ no active ledger             │ numbered checkbox items          │
 │ 3 │ Task list      │ 3rd tracker task, still no   │ same — write the ledger and      │
@@ -115,11 +115,13 @@ This is the part that has teeth. Each gate fences one measured failure.
 
 **A worker cannot ask you anything.** Every ambiguity the chair carries into a spawn prompt becomes a guess committed to code — you pay once building the wrong thing, once rebuilding it. So the chair grills the request *before* writing a single ledger item.
 
-The protocol is [`skills/clarify/SKILL.md`](skills/clarify/SKILL.md) (`orchestrator:clarify`), loaded on demand. It scans seven axes — scope edge, acceptance, constraints, whose call each choice is, priority conflicts, contact with existing code, failure behaviour — and turns each unresolved one into a question.
+The protocol is [`skills/clarify/SKILL.md`](skills/clarify/SKILL.md) (`orchestrator:clarify`), loaded on demand. It scans seven axes at every size — scope edge, acceptance, constraints, whose call each choice is, priority conflicts, contact with existing code, failure behaviour — and turns each unresolved one into a question.
 
-- **One question per message.** The answer re-shapes the map and the next question is derived from it. Asking four at once guesses the order in which they depend on each other.
-- **No cap.** It stops when the scan is clean, not at a number.
-- **Only questions that change the work.** "Would a different answer produce different code?" If no, the chair writes the assumption down instead. That filter is what makes an uncapped loop safe — and it forbids asking what the repo already answers.
+- **All questions at the start, in rounds.** The chair reads the repo, then packs every open question into as few messages as possible (`AskUserQuestion` carries four). The answers re-shape the map, so the next round is derived from them — and the loop runs again. Nothing is asked mid-implementation: a genuine unknown found later stops the work and goes back to you.
+- **No cap.** It stops when no question is left unanswered *and* a worker's spec could be written without guessing — never at a number, and never on "the scan turned up nothing".
+- **Only questions that change the work.** "Would a different answer produce different code?" If no, it goes unasked. That filter is what makes an uncapped loop safe — and it forbids asking what the repo already answers.
+- **Never an assumption.** An unknown is asked, not written down as an `Assumption:` the user might veto later.
+- **One question is always asked:** does this land on the branch checked out now, or a new one? The chair cannot infer it from the branch it happens to be on.
 
 Answers land in the ledger, above the numbered items:
 
@@ -127,12 +129,10 @@ Answers land in the ledger, above the numbered items:
 ## Clarified
 - Q1: does this replace the old exporter, or run beside it? -> beside it, for one release
 - Q2: is the CSV column order part of the contract? -> yes, downstream parses by position
-- Assumption: existing exports are not backfilled — say so if wrong
+- Branch: main, the checkout in place
 ```
 
-Answers are **plain bullets**. A *numbered* checkbox (`- [ ] 1.`) is a ledger item, so it ends the section rather than filling it, and a `## Clarified` inside a code fence is an example, not a record.
-
-An unambiguous request still gets the section, as one line: `- No ambiguity: <why>`. It is never skipped, because "nothing here is ambiguous" is exactly what a chair thinks right before it builds the wrong thing.
+The hook reads that section by four rules and its deny text names the one that failed: every bullet with a `?` carries a `->` answer; no bullet is an `Assumption:`/`Varsayım:` line; at least one bullet carries an answer; a `Branch:`/`Dal:` bullet exists. Answers are **plain bullets** — any checkbox line is a ledger item and ends the section, a `## Clarified` inside a code fence is an example, not a record, and a restated sentence is narration, not an answer.
 
 ## 2 · The Requirements Ledger
 
@@ -229,7 +229,7 @@ Optional. Set these in `~/.claude/settings.json` under `"env"`.
 
 The clarify gate is new, and no existing ledger has a `## Clarified` section. So:
 
-1. For each **live** ledger, add the section — for work already underway, a short record of what was already agreed is the honest entry.
+1. For each **live** ledger, add the section — for work already underway, a short record of what was already agreed is the honest entry: at least one `- Qn: <question>? -> <answer>` line and a `- Branch:` line, no `Assumption:` line, no unanswered `?`.
 2. Or set `LEDGER_GUARD_CLARIFY=0` for that session and add it later.
 
 Finished ledgers need nothing: rename them `LEDGER-<topic>-archive.md`.
@@ -240,13 +240,13 @@ Finished ledgers need nothing: rename them `LEDGER-<topic>-archive.md`.
 python3 -m pytest tests/ -q
 ```
 
-The hooks are plain stdin/stdout JSON filters, so the tests run them end-to-end as subprocesses: thresholds and env overrides, the fork exemption, Workflow script gating, the clarify gate (heading level and case, code fences, setext boundaries, multiple sections, the numbered-item stop, precedence against a missing or stale ledger), the task-list gate, the upward ledger search and its boundaries, stop-guard scoping, metrics, injection, the profile-switch delta, cache cleanup, and teammate reaping against a fake tmux.
+The hooks are plain stdin/stdout JSON filters, so the tests run them end-to-end as subprocesses: thresholds and env overrides, the fork exemption, Workflow script gating, the clarify gate (the four `## Clarified` rules — open question, assumption line, no answer, no branch line — plus heading level and case, code fences, sub-headings, multiple rounds, the checkbox stop, precedence against a missing or stale ledger), the task-list gate, the upward ledger search and its boundaries, stop-guard scoping, metrics, injection, the profile-switch delta, cache cleanup, and teammate reaping against a fake tmux.
 
 A second layer pins the *content*: the cores stay under budget, both keep requiring the playbook and the `## Clarified` record, and the decisions that survived past rewrites are asserted line by line.
 
 ## Honest limitations
 
-- **Hooks check shape, not fidelity.** A shallow ledger passes. A one-line `- No ambiguity: <why>` passes. Mechanizing further buys ritual compliance, not clarity.
+- **Hooks check shape, not fidelity.** A shallow ledger passes. The clarify gate proves that questions were answered in the documented shape, not that the right questions were asked. Mechanizing further buys ritual compliance, not clarity.
 - **Freshness is half-checked.** A fully-closed ledger from a previous session re-arms the gates, but a stale one with open items still satisfies them — it looks like active work.
 - **`- [x]` without verifying is possible.** Ticking a box is not proof.
 - **Two chairs only.** Fable (primary) and Opus (fallback). Any other model gets the Fable profile.

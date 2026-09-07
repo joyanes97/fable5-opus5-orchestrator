@@ -51,11 +51,16 @@ def test_cores_stay_on_the_token_diet():
     #
     # v0.16.0 raised the pin from 4000 to 4400 to seat Rule 0.5: the
     # cores were at 3744/3781 and the clarify summary is ~370 chars, so
-    # the old pin would have passed only with no headroom left. 4.4k is
-    # still far under the 10k hook cap that made this a pin at all.
+    # the old pin would have passed only with no headroom left. The
+    # question phase then grew Rule 0.5 to ~1000 chars — rounds at the
+    # start, the four hook rules, the always-asked branch question —
+    # and the cores to ~4.7k, so the pin is 5000: the core still only
+    # summarizes (the seven axes and the question form stay in the
+    # skill), and the injection is the core text alone, far under the
+    # 10k hook cap that made this a pin at all.
     for name in CORES:
         text = _instr(name)
-        assert len(text) < 4400, f"{name} is {len(text)} chars — over the 4.4k core diet"
+        assert len(text) < 5000, f"{name} is {len(text)} chars — over the 5k core diet"
 
 
 def test_switch_notes_stay_tiny():
@@ -100,21 +105,43 @@ def test_clarify_skill_exists_and_stays_bounded():
     path = REPO.joinpath(*CLARIFY)
     assert path.is_file(), f"missing clarify skill: {path}"
     text = path.read_text(encoding="utf-8")
-    assert len(text) < 5000, f"SKILL.md is {len(text)} chars — over the 5k budget"
+    assert len(text) < 6500, f"SKILL.md is {len(text)} chars — over the 6.5k budget"
     assert "name: clarify" in text
 
 
 def test_clarify_skill_carries_the_user_decisions():
-    # User decisions (2026-08-26): one question per message, no cap on
-    # the loop, the "does the answer change the work" filter that makes
-    # an uncapped loop safe, and the record landing in the ledger. A
+    # User decisions: every question at the START, in rounds, none
+    # mid-implementation (2026-08-30 — one question per message across
+    # turns was the interruption the project exists to remove); no cap
+    # on the loop; the "does the answer change the work" filter that
+    # makes an uncapped loop safe; the record landing in the ledger;
+    # no assumption in place of a question (2026-08-31); the branch
+    # question asked at every size; the literal stop condition. A
     # rewrite that drops one of these is a regression, not an edit.
     text = _flat(_clarify())
-    assert "One question per message" in text
-    assert "No cap." in text
+    assert "Ask in rounds, at the start" in text
+    assert "AskUserQuestion" in text
+    assert "No cap on rounds." in text
     assert "would a different answer produce different code?" in text
     assert "`## Clarified`" in text
     assert "SendMessage" in text          # subagents escalate, never ask the user
+    assert "no `?` is left unanswered" in text
+    assert "- Branch: <where the work lands>" in text
+    assert "`Assumption:`/`Varsayım:` bullet" in text
+    assert "After the go, the window is CLOSED" in text
+
+
+def test_the_no_ambiguity_hatch_is_gone_everywhere():
+    # The one-line `- No ambiguity: <why>` record was the escape the
+    # chair took instead of asking (measured 2026-08-30/31: four live
+    # ledgers, zero questions). It is gone from the skill, both cores,
+    # the README, and the spawn guard's own deny text.
+    sources = {name: _instr(name) for name in CORES}
+    sources["clarify"] = _clarify()
+    sources["README"] = (REPO / "README.md").read_text(encoding="utf-8")
+    sources["guard"] = (REPO / "scripts" / "ledger_guard_spawn.py").read_text(encoding="utf-8")
+    for name, text in sources.items():
+        assert "no ambiguity" not in text.lower(), name
 
 
 def test_cores_require_clarification_before_delegation():
@@ -125,7 +152,27 @@ def test_cores_require_clarification_before_delegation():
         text = _flat(_instr(name))
         assert "orchestrator:clarify" in text, name
         assert "`## Clarified`" in text, name
-        assert "ONE question per" in text, name
+        assert "at the START" in text, name
+        assert "Ask in ROUNDS" in text, name
+        assert "no `?` is left unanswered" in text, name
+        assert "Never an assumption in place of a question" in text, name
+        assert "does this land on the branch checked out now, or a new one?" in text, name
+        assert "`- Branch: <where it lands>`" in text, name
+        assert "AFTER the go no question is asked mid-work" in text, name
+
+
+def test_both_cores_carry_the_same_rule_0_5():
+    # The clarify rule is the same discipline whichever model holds the
+    # chair; the two profiles differ in routing, never in what gets
+    # asked. Byte-identical, so a fix to one cannot silently miss the
+    # other.
+    import re
+    blocks = {}
+    for name in CORES:
+        m = re.search(r"## Rule 0\.5 — .*?(?=\n## Rule 1)", _instr(name), flags=re.S)
+        assert m, name
+        blocks[name] = m.group(0)
+    assert blocks[CORES[0]] == blocks[CORES[1]]
 
 
 def test_profiles_name_substantive_workers():

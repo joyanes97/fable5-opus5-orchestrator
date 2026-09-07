@@ -26,13 +26,24 @@ Exempt:
     full conversation context, so the ledger is already in front
     of it; forcing a file adds nothing.
 
-Rule 0.5 rides the same gates. A ledger only satisfies them when it
-carries a NON-EMPTY `## Clarified` section: the answers the chair got
-from the user, plus the assumptions it is proceeding on. Workers
-cannot ask the user anything, so every ambiguity that reaches a spawn
-prompt becomes a guess committed to code — the section is where that
-guessing is spent instead. The heading alone does not count; a chair
-that types the header and spawns anyway has clarified nothing.
+Rule 0.5 rides the same gates. A ledger only satisfies them when its
+`## Clarified` section holds actual answers, not just any line under
+the heading — four rules, evaluated over the bullet blocks of every
+`## Clarified` section in the file:
+    R1  in every bullet block (a bullet plus its indented continuation
+        lines) the LAST `?` is followed by a `->`/`→` arrow carrying a
+        real answer — not a bare `?`, not a `<placeholder>`
+    R2  no bullet is an `Assumption:`/`Varsayım:` line standing in for
+        a question the user was never asked
+    R3  at least one bullet block carries such an answer
+    R4  a `Branch:`/`Dal:` bullet names where the work lands
+Workers cannot ask the user anything, so every ambiguity that reaches
+a spawn prompt becomes a guess committed to code — the section is
+where that guessing is spent instead, by asking rather than assuming.
+The heading alone does not count, and neither does a restated
+sentence, a one-line claim that nothing was ambiguous, or an assumption
+dressed up as an answer; a chair that types the header and spawns anyway has clarified
+nothing. The deny text names exactly which rule(s) failed.
 
 The threshold defaults to 1500 chars — strict on purpose. This
 plugin is built for a Claude Fable 5 chair, where even small
@@ -73,14 +84,59 @@ except ImportError:  # non-POSIX: run unlocked, best effort
 DEFAULT_THRESHOLD = 1500
 DEFAULT_TASK_LIMIT = 3
 OPEN_ITEM_RE = r"^\s*[-*+] \[ \](?:\s.*)?$"
-CLARIFIED_HEADING_RE = r"^[ \t]{0,3}#{1,6}[ \t]*clarified\b[^\n]*$"
-ATX_HEADING_RE = r"^[ \t]{0,3}#{1,6}(?:[ \t]|$)"
+# The heading that OPENS a `## Clarified` section, at any level or case;
+# the level is captured so a DEEPER sub-heading (`### Round 2`) can stay
+# inside the section while a same-or-shallower one ends it.
+CLARIFIED_HEADING_RE = r"^[ \t]{0,3}(#{1,6})[ \t]*clarified\b[^\n]*$"
+# Two spellings of an ATX heading. The CommonMark one — hashes, then a
+# space or the end of the line, up to three spaces of indent. And the
+# spaceless one at COLUMN 0 only, because the heading that OPENS the
+# section does not require a space either: `##Clarified` starts a
+# section that `##Items` must be able to end. Column 0 and a letter,
+# so neither `#42 in the tracker` nor `  #alpha in prose` on a wrapped
+# answer line is read as a heading.
+ATX_HEADING_RE = r"^[ \t]{0,3}(#{1,6})(?:[ \t]|$)"
+SPACELESS_HEADING_RE = r"^(#{1,6})(?=[^\W\d_])"
+# The other heading syntax: a paragraph line underlined with === or
+# ---. It ends the section only when it STARTS a paragraph (blank line
+# or section start before it) — a `---` right under a bullet's wrapped
+# text is a thematic break after a list item, not a heading.
 SETEXT_UNDERLINE_RE = r"^[ \t]{0,3}(?:=+|-{2,})[ \t]*$"
-# A NUMBERED checkbox — `- [ ] 3.` or `- [x] V.` — is a ledger item and ends
-# the Clarified section. An unnumbered one (`- [x] Q1: yes`) is an answer
-# written in checkbox form and still counts as content: denying that shape
-# would tell the chair its filled-in section is empty.
-LEDGER_ITEM_RE = r"^\s*[-*+] \[[ xX~]\][ \t]*(?:\d+|[Vv])\."
+# ANY checkbox ends the Clarified section: the numbered items live
+# directly below it with no heading in between, and answers are plain
+# bullets — a checkbox line is a ledger item, never an answer.
+CHECKBOX_RE = r"^\s*[-*+][ \t]+\[[^\]]?\]"
+# Lines that are punctuation rather than an answer: thematic breaks
+# and table rules (HTML comments are stripped before this runs). A
+# chair that typed the heading and a divider has still clarified
+# nothing.
+NON_ANSWER_RE = (r"^[ \t]{0,3}(?:(?:[-*_][ \t]*){3,}"
+                 r"|\|[ \t|:-]*\|[ \t]*)$")
+# The bullet-block grammar for `## Clarified`: EVERY bullet line, at
+# any indent, starts a block — `-`, `*`, `+`, or an ordered `1.`/`1)`;
+# a non-bullet line indented deeper than that bullet is a CONTINUATION
+# of it, so a `Q -> A` pair may wrap onto its own indented line. Tabs
+# count as four columns. Indent is read from the bullet, not from the
+# section's first one, so a `- Branch:` nested one level under a
+# question is still its own line.
+BULLET_RE = re.compile(r"^(\s*)(?:[-*+]|\d{1,3}[.)])\s+")
+# The arrow that separates a question from its answer.
+_ARROW_RE = re.compile(r"->|→")
+# An answer written as `<something>` is the template's placeholder,
+# not a thing the user said.
+_PLACEHOLDER_RE = re.compile(r"^<[^<>]*>[\s.,;:!]*$")
+# The MARKER an Assumption/Branch check reads: the bullet marker, an
+# optional bold wrapper, and an optional `Q1:`/`S2:` label are stripped
+# first, so `- **Assumption:** ...` and `- Q3: Branch: main` are read by
+# what they SAY, not by how they are decorated or numbered.
+_MARKER_PREFIX_RE = re.compile(
+    r"^(?:[-*+]|\d{1,3}[.)])\s+(?:\*\*)?(?:[QS]\d+:\s*)?(?:\*\*)?\s*", re.I)
+# Both languages the user's ledgers use, matched on the marker WORD
+# before its colon after emphasis marks are peeled and case is folded
+# (`**Branch**:`, `DAL:`, `VARSAYİM:` all read). "varsayim" is the
+# ASCII-typed form of "varsayım".
+_ASSUMPTION_WORDS = ("assumption", "varsayım", "varsayim")
+_BRANCH_WORDS = ("branch", "dal")
 
 
 def _metric(event, session_id=None, **extra):
@@ -193,7 +249,7 @@ def guard_task_create(data):
     if limit <= 0:
         return
     session_id = data.get("session_id")
-    ledger, blocker = ledger_state(data)
+    ledger, blocker, failures = ledger_state(data)
     if blocker is None:
         return
 
@@ -217,6 +273,7 @@ def guard_task_create(data):
         _deny(_clarify_reason(
             ledger,
             f"this is tracker task #{count} this session — multi-phase work — but",
+            failures,
         ))
         return
 
@@ -229,11 +286,14 @@ def guard_task_create(data):
         f"{_stale_note(ledger, blocker)}. "
         "Rule 0's hard cap: work that needs a task list of 3+ items is "
         "OVER the orchestration threshold, and an approved plan is NOT "
-        "an exemption. Write the numbered Requirements Ledger to "
-        "./.workflow/LEDGER.md now, then delegate implementation to "
-        "sonnet workers citing ledger items instead of implementing "
-        "the phases yourself. Re-issue this task afterwards — this "
-        "reminder fires once per session."
+        "an exemption. Ask the user every question that would change the "
+        "work, then write ./.workflow/LEDGER.md now — a `## Clarified` "
+        "section on top (the answers as plain bullets, `- Q1: <question>? "
+        "-> <answer>`, plus a `- Branch: <where the work lands>` line) and "
+        "the numbered Requirements Ledger below it — then delegate "
+        "implementation to sonnet workers citing ledger items instead of "
+        "implementing the phases yourself. Re-issue this task afterwards — "
+        "this reminder fires once per session."
     )
 
 
@@ -344,7 +404,9 @@ def read_ledger(path):
     open on a ledger that no longer existed.
     """
     try:
-        with open(path, encoding="utf-8", errors="replace") as f:
+        # utf-8-sig: an editor that writes a BOM must not hide a line-one
+        # `## Clarified` behind U+FEFF and deny the section it can see.
+        with open(path, encoding="utf-8-sig", errors="replace") as f:
             return f.read()
     except OSError:
         return None
@@ -375,90 +437,251 @@ def clarify_gate_on():
 
 
 def _outside_fences(text):
-    """Drop fenced code blocks — a ``` example section is not a record.
+    """Drop fenced code blocks — a fenced example section is not a record.
 
-    Same rule and same implementation as the close guard's helper: a
-    markdown example of what `## Clarified` should look like must not
-    satisfy the gate the example is teaching.
+    Tracks the fence character and its length, so a ~~~ block counts
+    the same as a ``` one and a four-backtick block can quote a
+    three-backtick example without the inner fence closing the outer.
+    A markdown example of what `## Clarified` should look like must not
+    satisfy the gate that example is teaching.
     """
-    kept, fenced = [], False
+    kept = []
+    fence = None                      # (char, length) while inside a block
     for line in text.splitlines():
-        if line.lstrip().startswith("```"):
-            fenced = not fenced
-            continue
-        if not fenced:
+        stripped = line.lstrip()
+        char = stripped[:1]
+        if char in ("`", "~"):
+            run = len(stripped) - len(stripped.lstrip(char))
+            if run >= 3:
+                if fence is None:
+                    fence = (char, run)
+                    continue
+                if char == fence[0] and run >= fence[1]:
+                    fence = None
+                    continue
+        if fence is None:
             kept.append(line)
     return kept
 
 
-def _section_has_content(lines, index):
-    """True when the section starting at `index` carries a real answer.
+def _strip_html_comments(lines):
+    """Blank out `<!-- ... -->` spans, across lines, keeping line count.
 
-    The section ends at the next heading — ATX (`## X`) or setext (a
-    line underlined with === or ---) — or at the first NUMBERED ledger
-    item, because the documented layout puts `## Clarified` directly
-    above the items with no heading between them. Without those stops
-    an empty heading would read the ledger's own requirements back as
-    answers.
+    A `## Clarified` template left inside an HTML comment is the same
+    thing as one left inside a code fence — an example, not a record —
+    and the bullets inside it must not be read as answers. Single-line
+    comments are removed from the line they sit on; a multi-line one
+    blanks every line from its opener to its closer.
     """
+    kept = []
+    inside = False
+    for line in lines:
+        out = ""
+        rest = line
+        while rest:
+            if inside:
+                end = rest.find("-->")
+                if end < 0:
+                    rest = ""
+                    break
+                inside = False
+                rest = rest[end + 3:]
+            else:
+                start = rest.find("<!--")
+                if start < 0:
+                    out += rest
+                    rest = ""
+                    break
+                out += rest[:start]
+                inside = True
+                rest = rest[start + 4:]
+        kept.append(out)
+    return kept
+
+
+def _atx_level(line):
+    """The heading level of an ATX line, or None."""
+    m = re.match(ATX_HEADING_RE, line) or re.match(SPACELESS_HEADING_RE, line)
+    return len(m.group(1)) if m else None
+
+
+def _real_text(tail):
+    """True when `tail` — the text after an arrow or a marker's colon —
+    says something: not empty, not a `<placeholder>`, not bare
+    punctuation such as a lone `?`."""
+    tail = tail.strip()
+    return bool(tail) and not _PLACEHOLDER_RE.match(tail) and bool(re.search(r"\w", tail))
+
+
+def _answer_at(block, pos):
+    """Index of the first arrow at or after `pos` that carries a real
+    answer, or -1. The answer is everything after that arrow."""
+    for m in _ARROW_RE.finditer(block, pos):
+        if _real_text(block[m.end():]):
+            return m.start()
+    return -1
+
+
+def _has_answer(block):
+    return _answer_at(block, 0) >= 0
+
+
+def _open_question(block):
+    """R1: the LAST `?` in the block must be followed by an answer.
+
+    Positional on purpose: `migrate A -> B?` has an arrow and is still
+    a question, `db? -> ?` has an arrow and no answer, and a nested
+    sub-bullet `- and z?` under an answered parent is a NEW question.
+    An answer that itself ends in `?` is refused too — rephrase it;
+    this follows "until no question mark remains" literally.
+    """
+    last = block.rfind("?")
+    return last >= 0 and _answer_at(block, last) < 0
+
+
+def _marker_word(block_text):
+    """(word, rest) for a `Word: rest` bullet, after peeling the bullet
+    marker, an optional `Q1:`/`S2:` label, and emphasis marks; the word
+    is case-folded with the Turkish dotted-İ combining mark removed.
+    ("", "") when the bullet has no colon-terminated word."""
+    m = _MARKER_PREFIX_RE.match(block_text)
+    marker = block_text[m.end():] if m else block_text
+    head, sep, rest = marker.partition(":")
+    if not sep:
+        return "", ""
+    word = re.sub(r"[*_`~\s]", "", head).lower().replace("\u0307", "")
+    return word, rest
+
+
+def _is_assumption(block):
+    return _marker_word(block)[0] in _ASSUMPTION_WORDS
+
+
+def _is_branch(block):
+    word, rest = _marker_word(block)
+    return word in _BRANCH_WORDS and _real_text(rest)
+
+
+def _clarified_blocks(lines, index, level):
+    """The bullet BLOCKS inside one `## Clarified` section.
+
+    The section ends at the first checkbox line, at an ATX heading of
+    the SAME or a shallower level (`# Clarified` counts as `##` here —
+    the `##` sections after a title are siblings, not rounds), or at a
+    setext heading that starts a paragraph; a deeper sub-heading
+    (`### Round 2`) stays inside it. Within that boundary every bullet
+    line starts a block; a non-bullet line indented deeper than the
+    bullet above it is that block's continuation, joined with a single
+    space. Blank lines, `NON_ANSWER_RE` lines (dividers, table rules),
+    and any other line that is neither a bullet nor a continuation — a
+    stray heading, a restated sentence — contribute nothing and start
+    no block of their own: a chair still has to ask in a bullet, not
+    narrate around one. No bullet anywhere in the section means no
+    blocks at all, the same as an empty one.
+    """
+    # `# Clarified` is a document-title level; the sections that follow
+    # it are `##`, and they are siblings, not rounds inside it. A deeper
+    # sub-heading stays inside only from `##` down.
+    level = max(level, 2)
+    section = []
+    prev_blank = True
     while index < len(lines):
-        line = lines[index]
-        if re.match(ATX_HEADING_RE, line) or re.match(LEDGER_ITEM_RE, line):
-            return False
-        if line.strip():
-            nxt = lines[index + 1] if index + 1 < len(lines) else ""
-            if re.match(SETEXT_UNDERLINE_RE, nxt):
-                return False        # this line is a setext heading, not an answer
-            return True
+        line = lines[index].expandtabs(4)
+        if re.match(CHECKBOX_RE, line):
+            break
+        atx = _atx_level(line)
+        if atx is not None and atx <= level:
+            break
+        nxt = lines[index + 1] if index + 1 < len(lines) else ""
+        if (prev_blank and line.strip() and not re.match(BULLET_RE, line)
+                and len(line) - len(line.lstrip()) <= 3
+                and re.match(SETEXT_UNDERLINE_RE, nxt)):
+            break                         # a setext heading opens the next section
+        prev_blank = not line.strip()
+        section.append(line)
         index += 1
-    return False
+
+    blocks = []
+    current, current_indent = None, -1
+    for line in section:
+        if not line.strip() or re.match(NON_ANSWER_RE, line):
+            continue
+        indent = len(line) - len(line.lstrip())
+        if re.match(BULLET_RE, line):
+            if current is not None:
+                blocks.append(" ".join(current))
+            current, current_indent = [line.strip()], indent
+        elif current is not None and indent > current_indent:
+            current.append(line.strip())
+        # else: a stray line at/under the bullet's indent that is not a
+        # bullet — ignored, same as a blank line.
+    if current is not None:
+        blocks.append(" ".join(current))
+    return blocks
 
 
-def ledger_clarified(ledger, text=None):
-    """True when the ledger carries a NON-EMPTY `## Clarified` section.
+def clarified_failures(ledger, text=None):
+    """Which of the four Clarified rules fail, in report order.
 
-    The heading alone is not the record: a chair that types the header
-    and spawns anyway has clarified nothing. EVERY heading is checked,
-    not just the first — the protocol appends later answers, so a
-    filled section lower in the file counts even when an empty one
-    sits above it.
+    Evaluated over the UNION of blocks from every `## Clarified`
+    section the ledger carries — the protocol appends later rounds,
+    and an answer from round 1 still counts once round 2 adds the
+    branch line. Empty when the ledger is unreadable (fail open, like
+    every other check here) or when every rule is satisfied; a ledger
+    with no `## Clarified` heading at all, or one whose section(s)
+    carry no bullet, resolves to R3 and R4 failing — a missing section
+    trips those two the same way an empty one does.
 
-    Level and case are free (`# Clarified`, `### clarified`): the rule
-    is about the record existing, not about markdown depth. An
-    unreadable ledger fails OPEN, exactly like ledger_satisfies — a
-    guard never blocks on its own IO error.
+    Names: "assumption" (R2), "open_question" (R1), "no_answer" (R3),
+    "no_branch" (R4) — `_clarify_reason` turns these into prose.
     """
     if text is None:
         text = read_ledger(ledger)
     if text is None:
-        return True
-    lines = _outside_fences(text)
-    starts = [i for i, line in enumerate(lines)
-              if re.match(CLARIFIED_HEADING_RE, line, flags=re.I)]
-    if not starts:
-        return False
-    return any(_section_has_content(lines, i + 1) for i in starts)
+        return []
+    lines = _strip_html_comments(_outside_fences(text))
+    starts = [(i, len(m.group(1)))
+              for i, line in enumerate(lines)
+              for m in [re.match(CLARIFIED_HEADING_RE, line, flags=re.I)] if m]
+    blocks = []
+    for i, level in starts:
+        blocks.extend(_clarified_blocks(lines, i + 1, level))
+
+    failures = []
+    if any(_is_assumption(b) for b in blocks):
+        failures.append("assumption")
+    if any(_open_question(b) for b in blocks):
+        failures.append("open_question")
+    if not any(_has_answer(b) for b in blocks):
+        failures.append("no_answer")
+    if not any(_is_branch(b) for b in blocks):
+        failures.append("no_branch")
+    return failures
 
 
 def ledger_state(data):
-    """(ledger path or None, blocker or None).
+    """(ledger path or None, blocker or None, failed clarify rules).
 
     blocker is "missing", "stale", "unclarified", or None when the
-    ledger clears both Rule 0.5 and Rule 1. Both gates below share
-    this so a spawn and a tracker task can never disagree about what
-    the ledger says.
+    ledger clears both Rule 0.5 and Rule 1. The third element is
+    `clarified_failures()`'s list — non-empty only for "unclarified" —
+    so the deny text can name the rule that failed without a second
+    read of the file. Both gates below share this so a spawn and a
+    tracker task can never disagree about what the ledger says.
     """
     ledger = find_ledger(data.get("cwd"))
     if not ledger:
-        return None, "missing"
+        return None, "missing", []
     text = read_ledger(ledger)
     if text is None:
-        return ledger, None                    # unreadable → fail open
+        return ledger, None, []                # unreadable → fail open
     if not ledger_satisfies(ledger, data.get("session_id"), text=text):
-        return ledger, "stale"
-    if clarify_gate_on() and not ledger_clarified(ledger, text=text):
-        return ledger, "unclarified"
-    return ledger, None
+        return ledger, "stale", []
+    if clarify_gate_on():
+        failures = clarified_failures(ledger, text=text)
+        if failures:
+            return ledger, "unclarified", failures
+    return ledger, None, []
 
 
 def _stale_note(ledger, blocker):
@@ -471,23 +694,47 @@ def _stale_note(ledger, blocker):
     )
 
 
-def _clarify_reason(ledger, lead):
-    """The Rule 0.5 deny text, shared by both gates."""
+_CLARIFY_FAILURE_PROSE = {
+    "assumption": "an assumption where a question belongs",
+    "open_question": "an unanswered question",
+    "no_answer": "no question-and-answer line",
+    "no_branch": "no branch line",
+}
+
+
+def _clarify_reason(ledger, lead, failures=()):
+    """The Rule 0.5 deny text, naming exactly which rule(s) failed.
+
+    `failures` is `clarified_failures()`'s own list, already in report
+    order — this only turns the names into prose, never re-derives
+    them, so the text cannot drift from the check it describes.
+    """
+    named = ", ".join(_CLARIFY_FAILURE_PROSE.get(f, f) for f in failures)
+    what_failed = (f"fails on {named}" if named
+                   else "has no `## Clarified` section with content in it")
     return (
-        f"CLARIFY GUARD: {lead} the ledger at {ledger} has no `## Clarified` "
-        "section with content in it, so unresolved ambiguity is about to reach "
-        "workers who cannot ask the user anything. Per Dynamic Workflow Rule "
-        "0.5, ask the user ONE question at a time — scope edge, acceptance, "
+        f"CLARIFY GUARD: {lead} the ledger at {ledger} {what_failed}, so "
+        "unresolved ambiguity is about to reach workers who cannot ask the "
+        "user anything. Per Dynamic Workflow Rule 0.5, ask the user — at the "
+        "START, in rounds, before the ledger and before any spawn — every "
+        "question that would change the work: scope edge, acceptance, "
         "constraints, whose call each choice is, priority conflicts, contact "
-        "with existing code, failure behaviour — each question derived from the "
-        "last answer, until nothing that would change the work is still open. "
-        "Then record the answers and any explicit assumptions under "
-        "`## Clarified` at the TOP of the ledger and re-issue this call. Load "
-        "`orchestrator:clarify` for the protocol. Answers are plain bullets: a "
-        "NUMBERED checkbox (`- [ ] 1.`) reads as a ledger item and ends the "
-        "section, and a fenced example does not count. If the request genuinely "
-        "is unambiguous, say so in one line under the heading "
-        "('- No ambiguity: <why>') — the section is never skipped. "
+        "with existing code, failure behaviour — until no `?` is left "
+        "unanswered and a worker's spec could be written without guessing. "
+        "Then record the answers under `## Clarified` at the TOP of the "
+        "ledger and re-issue this call. Load `orchestrator:clarify` for the "
+        "protocol. Answers are PLAIN BULLETS, one per question: `- Q1: "
+        "<question>? -> <the user's answer>` (`→` also reads as the arrow; "
+        "the answer is real words, not a `<placeholder>` or a bare `?`, and "
+        "the last `?` of a bullet must have its answer after it), "
+        "continuation text indented under its own bullet — a checkbox line "
+        "(`- [ ]`, `- [x]`) reads as a ledger item and ends the section, and "
+        "a fenced example, a divider, or a bare heading does not count as "
+        "content. Never write an `Assumption:`/`Varsayım:` line in place of "
+        "a question — ask instead. Always close with a `- Branch: <where the "
+        "work lands>` line (`Dal:` also reads). If this ledger belongs to "
+        "ABANDONED or unrelated work, do not write into it: archive it as "
+        "LEDGER-<topic>-archive.md and start a fresh one for this task. "
         "LEDGER_GUARD_CLARIFY=0 disables this gate."
     )
 
@@ -529,7 +776,7 @@ def _guard(data):
         return
 
     session_id = data.get("session_id")
-    ledger, blocker = ledger_state(data)
+    ledger, blocker, failures = ledger_state(data)
     if blocker is None:
         _metric("spawn_pass_over_threshold", session_id,
                 chars=len(text), threshold=limit,
@@ -543,6 +790,7 @@ def _guard(data):
         _deny(_clarify_reason(
             ledger,
             f"this looks like a detailed delegation ({what} > {limit} chars) but",
+            failures,
         ))
         return
 
@@ -553,10 +801,14 @@ def _guard(data):
         f"LEDGER GUARD: this looks like a detailed delegation "
         f"({what} > {limit} chars) but no active ledger exists in "
         "any .workflow/ from the working directory up to the repo root"
-        f"{_stale_note(ledger, blocker)}. Per Dynamic Workflow Rule 1, first "
-        "write the numbered Requirements Ledger to ./.workflow/LEDGER.md "
-        "(checkbox format: '- [ ] N. <item>'), then re-spawn citing "
-        "which ledger items each agent covers. If this is genuinely a "
+        f"{_stale_note(ledger, blocker)}. Per Dynamic Workflow Rules 0.5 and 1, "
+        "first ask the user every question that would change the work, then "
+        "write ./.workflow/LEDGER.md with a `## Clarified` section on top "
+        "(the answers as plain bullets, `- Q1: <question>? -> <answer>`, plus "
+        "a `- Branch: <where the work lands>` line) and the numbered "
+        "Requirements Ledger below it (checkbox format: '- [ ] N. <item>'), "
+        "then re-spawn citing which ledger items each agent covers — a ledger "
+        "without that record is denied again by the clarify gate. If this is genuinely a "
         "small single-phase task, do it directly; if it is "
         "multi-phase, write the ledger and delegate — never keep "
         "multi-phase work solo."

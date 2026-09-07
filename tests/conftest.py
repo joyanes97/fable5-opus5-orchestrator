@@ -115,10 +115,11 @@ def repo_dir(tmp_path):
     return tmp_path
 
 
-# What a clarified ledger looks like: the Rule 0.5 gate wants a
-# non-empty `## Clarified` section, and every test that is about the
-# LEDGER gates rather than the clarify gate needs one to get past it.
-CLARIFIED = "## Clarified\n- Q1: scope -> the whole thing\n\n"
+# What a clarified ledger looks like: the Rule 0.5 gate wants an
+# answered question (`Q -> A`) and a `- Branch:` line under
+# `## Clarified`, and every test that is about the LEDGER gates rather
+# than the clarify gate needs one to get past it.
+CLARIFIED = "## Clarified\n- Q1: what is the scope? -> the whole thing\n- Branch: main\n\n"
 
 
 def write_ledger(root, body="- [ ] 1. item\n", clarified=True):

@@ -90,7 +90,7 @@ def main():
         # that was blocked.
         print(f"\nover-threshold spawns: {passes} passed the gates, "
               f"{denies} denied for a missing or stale ledger, "
-              f"{cdenies} denied for a missing `## Clarified` record")
+              f"{cdenies} denied by the clarify gate (`## Clarified` missing or incomplete)")
 
     tdenies = events.get("tasks_deny", 0)
     tcdenies = events.get("tasks_clarify_deny", 0)

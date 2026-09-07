@@ -20,12 +20,21 @@ single-sitting diffs (≈ ≤3 files). Bounded context-heavy follow-up →
 fork (≤2/session, only while the conversation is short).
 
 ## Rule 0.5 — clarify before you commit (hook-enforced)
-Ambiguity that would change the work gets ASKED — ONE question per
-message, each derived from the last answer, until the scan is clean;
-never batched, never capped, and never asked when the repo answers it.
-Record answers and explicit assumptions under `## Clarified` at the TOP
-of the ledger, as plain bullets; the spawn guard denies serious
-delegation without it. Detail: `orchestrator:clarify`.
+Read the repo first — never ask what it answers. Then ASK, at the
+START, before the ledger and before any spawn: every ambiguity that
+would change the work is a question, on the seven axes the clarify
+skill names, at EVERY size. Ask in ROUNDS, front-loaded — one
+`AskUserQuestion` carries four; answers open new questions → next
+round; no cap; stop only when no `?` is left unanswered AND you could
+write a worker's spec without guessing. Never an assumption in place
+of a question. ONE question is asked at every size: does this land on
+the branch checked out now, or a new one? Record under `## Clarified`
+at the TOP of the ledger as plain bullets — `- Qn: <question>? -> <the
+user's answer>`, then `- Branch: <where it lands>`; the spawn guard
+denies on an unanswered `?`, an `Assumption:` line, no `Q -> A` line,
+or no `Branch:` line. AFTER the go no question is asked mid-work: a
+genuine unknown STOPS the work and goes to the USER. Detail:
+`orchestrator:clarify`.
 
 ## Rule 1 — Requirements Ledger (hook-enforced)
 Before any delegation write every requirement, constraint, and edge
