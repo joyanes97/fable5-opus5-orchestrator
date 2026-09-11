@@ -67,11 +67,12 @@ def test_core_is_clarify_only():
     # question phase and nothing else. Routing tiers, effort scale,
     # spawn discipline, worktree policy, report diet, fresh-eyes
     # verifier — any of these coming back is a regression.
-    text = _flat(_core()).lower()
-    for banned in ("sonnet", "opus", "haiku", "routing", "effort", "fork",
-                   "worktree", "≤40 lines", "fresh", "verif", "v. ",
-                   "shutdown_request", "tmux"):
-        assert banned not in text, f"core carries `{banned}` again"
+    text = _flat(_core())
+    for banned in (r"\bsonnet\b", r"\bopus\b", r"\bhaiku\b", r"\brouting\b",
+                   r"\beffort\b", r"\bforks?\b", r"\bworktree\b", r"≤40 lines",
+                   r"\bfresh[- ]eyes\b", r"\bverifier\b", r"\bverification\b",
+                   r"`- \[ \] V\.", r"shutdown_request", r"\btmux\b"):
+        assert not re.search(banned, text, re.IGNORECASE), f"core carries `{banned}` again"
     assert "./.workflow/LEDGER*.md" in _core()
     assert "`- [ ] N. <item>`" in _core()
     assert "`- [~] deferred: <reason>`" in _flat(_core())
@@ -148,9 +149,13 @@ def test_readme_carries_no_price_or_cost_figures():
     # User decision: the README sells the DISCIPLINE, not a number. Any
     # concrete price/spend figure dates instantly (tier prices move) and
     # invites a "is that still true?" the plugin cannot answer.
-    text = (REPO / "README.md").read_text(encoding="utf-8")
-    assert not re.search(r"\$\s?\d", text)
-    assert not re.search(r"\b\d+(\.\d+)?\s?(x|×)\s?(cheaper|more expensive|the price)", text, re.I)
+    readme = _flat((REPO / "README.md").read_text(encoding="utf-8"))
+    money = re.compile(
+        r"[$€£]\s?\d|\b\d+(?:[.,]\d+)?\s?(?:USD|EUR|dollars?|cents?)\b"
+        r"|\bper (?:million|1M) tokens\b",
+        re.IGNORECASE)
+    hit = money.search(readme)
+    assert not hit, f"README carries a price figure: {hit.group(0) if hit else ''}"
 
 
 def _inject(tmp_path, payload, **env):

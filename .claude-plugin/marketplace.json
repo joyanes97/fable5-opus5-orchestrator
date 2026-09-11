@@ -1,6 +1,6 @@
 {
   "name": "fable-orchestrator",
-  "description": "Fable 5-first multi-agent orchestration for Claude Code: a token-frugal chair profile with tier routing (Sonnet 5 carries the volume, Opus 5 the hard slices), chair-sized effort per worker, a Requirements Ledger, guard hooks that enforce the discipline, and automatic teammate reaping. A clarification phase grills an ambiguous request into the ledger before serious delegation.",
+  "description": "Clarify-first discipline for Claude Code: the chair asks every question a job raises at the start, in rounds, and records the answers in a Requirements Ledger before anything is delegated. Guard hooks enforce it mechanically, and finished tmux teammates are reaped automatically.",
   "owner": {
     "name": "Yusuf Demirkoparan",
     "url": "https://github.com/Rylaa"
@@ -9,7 +9,7 @@
     {
       "name": "orchestrator",
       "source": "./",
-      "description": "Fable 5-first multi-agent orchestration: a token-frugal chair profile with tier routing, a Requirements Ledger, guard hooks that enforce the discipline mechanically, and automatic teammate reaping. A clarification phase grills an ambiguous request into the ledger before serious delegation."
+      "description": "Clarify-first discipline: every question at the start, recorded under `## Clarified` in a Requirements Ledger before serious delegation; guard hooks enforce it, finished teammates are reaped."
     }
   ]
 }

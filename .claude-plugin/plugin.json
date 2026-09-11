@@ -1,6 +1,6 @@
 {
   "name": "orchestrator",
-  "description": "Clarify-first discipline for Claude Code: the chair asks every question a job raises at the start, in rounds, and records the answers under `## Clarified` in a Requirements Ledger before anything is delegated. Guard hooks enforce it mechanically — serious delegation is denied until the record exists, the close is held while ledger items stay open — and finished tmux teammates are reaped automatically.",
+  "description": "Clarify-first discipline for Claude Code: the chair asks every question a job raises at the start, in rounds, and records the answers under `## Clarified` in a Requirements Ledger before anything is delegated. Guard hooks enforce it mechanically — serious delegation is denied until the record exists, the first turn-end with open ledger items is held — and finished tmux teammates are reaped automatically.",
   "version": "0.25.0",
   "author": {
     "name": "Yusuf Demirkoparan",

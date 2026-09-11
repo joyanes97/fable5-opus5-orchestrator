@@ -27,5 +27,5 @@ The record is ./.workflow/LEDGER*.md — hooks see only that path.
 and edge case as one `- [ ] N. <item>` line; `- [x]` once done, `- [~]
 deferred: <reason>` only with user approval. Hooks: spawns over 1500
 chars denied while the ledger or its `## Clarified` is missing; the
-3rd ledgerless tracker task denied once; a turn-end held while any
-`- [ ]` remains.
+3rd ledgerless tracker task denied once; the first turn-end with an
+open `- [ ]` held.

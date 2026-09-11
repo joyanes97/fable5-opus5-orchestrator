@@ -20,7 +20,8 @@ The hook also maintains the per-session marker the Stop and SessionEnd
 hooks rely on: its immutable `started` timestamp survives the re-runs
 SessionStart gets on resume/clear/compact, and the stop guard compares
 ledger mtimes against it to decide ownership. `model` keeps the last
-non-empty model the payload named, for the metrics log.
+non-empty model the payload named; the metrics log records the same
+sticky value.
 """
 import json
 import os
@@ -53,7 +54,6 @@ def _metric(event, session_id=None, **extra):
             f.write(json.dumps(rec) + "\n")
     except Exception:
         pass
-
 
 
 def _read_marker(cache):
@@ -125,7 +125,6 @@ def _is_teammate_session(max_hops=12):
     return False
 
 
-
 def main():
     try:
         data = json.load(sys.stdin)
@@ -138,8 +137,9 @@ def main():
     session_id = data.get("session_id")
     cache = session_model_cache_path(session_id)
     prev_started, prev_model = _read_marker(cache)
-    filename = "dynamic-workflow.md"
-
+    # Sticky model for the marker AND the metrics log: a null-payload
+    # resume must not forget the chair.
+    stored_model = model if str(model or "").strip() else prev_model
     # The core is chair-only; a teammate session skips the injection
     # but still gets its marker below — stop, spawn, and cleanup key off
     # it.
@@ -152,7 +152,7 @@ def main():
         root = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(
             os.path.dirname(os.path.abspath(__file__))
         )
-        path = os.path.join(root, "instructions", filename)
+        path = os.path.join(root, "instructions", "dynamic-workflow.md")
         try:
             with open(path, encoding="utf-8") as f:
                 text = f.read()
@@ -179,7 +179,6 @@ def main():
                     started = os.path.getmtime(cache)
                 except OSError:
                     started = time.time()
-            stored_model = model if str(model or "").strip() else prev_model
             # Atomic replace: a crash mid-write must never leave a
             # truncated marker. The tmp name keeps the fable-orch-*.json
             # shape so an orphan from a crash still matches the 96h sweep.
@@ -195,10 +194,10 @@ def main():
         pass
 
     if teammate:
-        _metric("inject_skipped", session_id, model=model, reason="teammate")
+        _metric("inject_skipped", session_id, model=stored_model, reason="teammate")
         return
 
-    _metric("inject", session_id, model=model)
+    _metric("inject", session_id, model=stored_model)
     print(json.dumps({
         "hookSpecificOutput": {
             "hookEventName": "SessionStart",

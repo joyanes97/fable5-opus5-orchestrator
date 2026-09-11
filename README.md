@@ -19,9 +19,9 @@ Restart Claude Code afterwards. Needs `python3` on PATH; macOS and Linux only.
 2. **It asks questions — all of them at the start.** It reads the repo first, then asks in rounds until no question is left open and a worker's spec could be written without guessing. Nothing is asked mid-implementation.
 3. **It writes the ledger** — the answers under `## Clarified`, then every requirement as one checkbox line in `./.workflow/LEDGER.md`.
 4. **It does the work** — directly, or through workers. Workers cannot ask you anything, which is why step 2 exists.
-5. **It closes** — every ledger box ticked or deferred with your approval; the stop hook holds the turn until then.
+5. **It closes** — every ledger box ticked or deferred with your approval; the first turn-end with open items is held.
 
-Skip step 2 or 3 and a hook stops you.
+Skip step 2, 3 or 5 and a hook stops you.
 
 ## The four gates
 
@@ -29,7 +29,7 @@ Skip step 2 or 3 and a hook stops you.
 |---|------|------------|------------------|
 | 1 | Clarify (PreToolUse) | a spawn over the threshold, ledger has no real answers | `## Clarified` with answered `Q -> A` lines and a `Branch:` line |
 | 2 | Spawn (PreToolUse) | spawn prompt over 1500 chars, no active ledger | any `.workflow/LEDGER*.md` with numbered checkbox items |
-| 3 | Task list (PreToolUse) | 3rd tracker task, still no ledger (fires once) | same: write the ledger and delegate |
+| 3 | Task list (PreToolUse) | 3rd tracker task, still no ledger (fires once) | same: ask, then write the ledger |
 | 4 | Close (Stop) | turn ends with open items (fires once per session) | finish them, defer with your approval, or say so |
 
 Never gated: short spawns, forks, and teammates. A fully closed ledger from an earlier session does not disarm anything; retire one by renaming it `LEDGER-<topic>-archive.md`.
@@ -52,7 +52,7 @@ The hook reads it by four rules and names the one that failed: every bullet's la
 ```markdown
 - [ ] 1. Every explicit requirement, one line each
 - [ ] 2. Implicit expectations and constraints too
-- [x] 3. Marked done only after verification confirms it
+- [x] 3. Marked done once it is done
 - [~] 4. deferred: user approved postponing this
 ```
 

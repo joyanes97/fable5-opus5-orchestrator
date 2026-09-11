@@ -45,11 +45,9 @@ sentence, a one-line claim that nothing was ambiguous, or an assumption
 dressed up as an answer; a chair that types the header and spawns anyway has clarified
 nothing. The deny text names exactly which rule(s) failed.
 
-The threshold defaults to 1500 chars — strict on purpose. This
-plugin is built for a Claude Fable 5 chair, where even small
-delegations should carry a ledger: Fable tokens are the scarce
-resource, and detail loss at task->plan translation is exactly
-what the ledger exists to catch.
+The threshold defaults to 1500 chars — strict on purpose: even
+small delegations should carry a ledger, because detail loss at
+task->plan translation is exactly what the ledger exists to catch.
 
 Staleness: a ledger satisfies the gates unless it is STALE-COMPLETE —
 every item closed AND untouched since before this session started
@@ -284,15 +282,13 @@ def guard_task_create(data):
         "multi-phase work — but no active ledger exists in any "
         ".workflow/ from the working directory up to the repo root"
         f"{_stale_note(ledger, blocker)}. "
-        "Rule 0's hard cap: work that needs a task list of 3+ items is "
-        "OVER the orchestration threshold, and an approved plan is NOT "
-        "an exemption. Ask the user every question that would change the "
+        "Work that needs a task list of 3+ items is a job, and a job starts "
+        "with its questions. Ask the user every question that would change the "
         "work, then write ./.workflow/LEDGER.md now — a `## Clarified` "
         "section on top (the answers as plain bullets, `- Q1: <question>? "
         "-> <answer>`, plus a `- Branch: <where the work lands>` line) and "
-        "the numbered Requirements Ledger below it — then delegate "
-        "implementation to workers citing ledger items instead of "
-        "implementing the phases yourself. Re-issue this task afterwards — "
+        "the numbered Requirements Ledger below it — then do the work, "
+        "directly or through workers citing ledger items. Re-issue this task afterwards — "
         "this reminder fires once per session."
     )
 
@@ -801,7 +797,7 @@ def _guard(data):
         f"LEDGER GUARD: this looks like a detailed delegation "
         f"({what} > {limit} chars) but no active ledger exists in "
         "any .workflow/ from the working directory up to the repo root"
-        f"{_stale_note(ledger, blocker)}. Per Dynamic Workflow Rules 0.5 and 1, "
+        f"{_stale_note(ledger, blocker)}. Per the clarify rule, "
         "first ask the user every question that would change the work, then "
         "write ./.workflow/LEDGER.md with a `## Clarified` section on top "
         "(the answers as plain bullets, `- Q1: <question>? -> <answer>`, plus "
@@ -810,8 +806,8 @@ def _guard(data):
         "then re-spawn citing which ledger items each agent covers — a ledger "
         "without that record is denied again by the clarify gate. If this is genuinely a "
         "small single-phase task, do it directly; if it is "
-        "multi-phase, write the ledger and delegate — never keep "
-        "multi-phase work solo."
+        "multi-phase, ask first and write the ledger before any "
+        "detailed spawn."
     )
 
 
