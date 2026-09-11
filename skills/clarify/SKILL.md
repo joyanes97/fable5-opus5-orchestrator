@@ -1,6 +1,6 @@
 ---
 name: clarify
-description: Clarification protocol — grill a request into a Requirements Ledger before any delegation, all questions at the START. The chair MUST load this when a job arrives that will be delegated; Rule 0.5 in the core profile only summarizes it.
+description: Clarification protocol — grill a request into a Requirements Ledger before any delegation, all questions at the START. The chair MUST load this when a job arrives that will be delegated; Rule 0.5 in the injected core only summarizes it.
 ---
 
 # Clarify Before You Delegate

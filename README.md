@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Rylaa/fable5-opus5-orchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/Rylaa/fable5-opus5-orchestrator/actions/workflows/ci.yml)
 
-A Claude Code plugin that keeps Claude Fable 5 in the chair: Fable asks, plans and decides; Sonnet 5 does the volume; Opus 5 takes the hard slices. Four hooks enforce the discipline so it does not depend on the model remembering it.
+A Claude Code plugin that makes the chair ask first: every question a job raises goes to you at the start, in rounds, before anything is planned, delegated or edited. Four hooks enforce it so it does not depend on the model remembering.
 
 ## Install
 
@@ -18,22 +18,10 @@ Restart Claude Code afterwards. Needs `python3` on PATH; macOS and Linux only.
 1. **You give the chair a job.**
 2. **It asks questions — all of them at the start.** It reads the repo first, then asks in rounds until no question is left open and a worker's spec could be written without guessing. Nothing is asked mid-implementation.
 3. **It writes the ledger** — the answers under `## Clarified`, then every requirement as one checkbox line in `./.workflow/LEDGER.md`.
-4. **It delegates** — Sonnet for volume, Opus for hard slices, effort sized per task. Workers cannot ask you anything, which is why step 2 exists.
+4. **It does the work** — directly, or through workers. Workers cannot ask you anything, which is why step 2 exists.
 5. **It closes** — every ledger box ticked or deferred with your approval; the stop hook holds the turn until then.
 
 Skip step 2 or 3 and a hook stops you.
-
-## Who does what
-
-| Work | Runs on |
-|------|---------|
-| Questions, planning, arbitration, decisions | Fable 5 (chair) |
-| Implementation, tests, refactors, briefs, standard review | Sonnet 5 |
-| Bulk gathering: fetch, grep, scan | Sonnet 5, low effort |
-| Architecture, migrations, stubborn debugging, all security review | Opus 5 |
-| Sonnet "uncertain" | escalates to Opus, then Fable |
-
-Escalation is one-way and never rewords a declined task. Worker reports are capped at 40 lines; anything longer goes to `./.workflow/scratch/` and the report carries the path.
 
 ## The four gates
 
@@ -70,10 +58,6 @@ The hook reads it by four rules and names the one that failed: every bullet's la
 
 Phases cite item numbers and discoveries are appended.
 
-## When the Fable limit runs dry
-
-Switch the chair to Opus with `/model`. The next session gets the [Opus profile](instructions/dynamic-workflow-opus.md): same discipline, the Fable tier rests. `FABLE_ORCH_PROFILE=opus` pins it immediately.
-
 ## Configuration
 
 Optional, under `"env"` in `~/.claude/settings.json`.
@@ -84,7 +68,6 @@ Optional, under `"env"` in `~/.claude/settings.json`.
 | `LEDGER_GUARD_CLARIFY` | on | `0` disables the clarify gate |
 | `LEDGER_GUARD_TASKS` | 3 | Nth ledgerless tracker task denied; `0` off |
 | `LEDGER_GUARD_STOP_MODE` | once-per-session | `every-turn` blocks on every turn |
-| `FABLE_ORCH_PROFILE` | auto | pin the chair profile: `auto`, `fable`, `opus` |
 | `FABLE_ORCH_METRICS` | on | `0` disables the local metrics log |
 | `FABLE_ORCH_SWARM_CLEANUP` | on | `0` disables teammate reaping |
 | `FABLE_ORCH_TEAMMATE_IDLE_H` | 1 | reap teammate panes idle for N hours; `0` off |
@@ -97,12 +80,11 @@ Finished teammates are reaped automatically at session end and on a rate-limited
 python3 -m pytest tests/ -q
 ```
 
-The hooks are stdin/stdout JSON filters, so the tests run them end to end as subprocesses, and a second layer pins the profile text and the skill against the decisions that produced them.
+The hooks are stdin/stdout JSON filters, so the tests run them end to end as subprocesses, and a second layer pins the core text and the skill against the decisions that produced them.
 
 ## Limitations
 
 - Hooks check shape, not fidelity: the clarify gate proves questions were answered in the documented shape, not that the right ones were asked.
-- Two chairs only, Fable and Opus. Any other model gets the Fable profile.
 - Enforcement is only as strong as the host's hook pipeline; verify once on your setup.
 
 ## License

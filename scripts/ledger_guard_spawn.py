@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """PreToolUse guard (Agent|Task|Workflow|TaskCreate): keep multi-phase work on the ledger.
 
-Dynamic Workflow Rule 1: serious multi-phase delegation requires
+Dynamic Workflow ledger rule: serious multi-phase delegation requires
 a Requirements Ledger in .workflow/ — any LEDGER*.md there, most
 recent wins, *-archive.md excluded (searched from the working
 directory up to the repo root or $HOME). Short spawn
@@ -291,7 +291,7 @@ def guard_task_create(data):
         "section on top (the answers as plain bullets, `- Q1: <question>? "
         "-> <answer>`, plus a `- Branch: <where the work lands>` line) and "
         "the numbered Requirements Ledger below it — then delegate "
-        "implementation to sonnet workers citing ledger items instead of "
+        "implementation to workers citing ledger items instead of "
         "implementing the phases yourself. Re-issue this task afterwards — "
         "this reminder fires once per session."
     )
@@ -663,7 +663,7 @@ def ledger_state(data):
     """(ledger path or None, blocker or None, failed clarify rules).
 
     blocker is "missing", "stale", "unclarified", or None when the
-    ledger clears both Rule 0.5 and Rule 1. The third element is
+    ledger clears both the clarify gate and the ledger gate. The third element is
     `clarified_failures()`'s list — non-empty only for "unclarified" —
     so the deny text can name the rule that failed without a second
     read of the file. Both gates below share this so a spawn and a
