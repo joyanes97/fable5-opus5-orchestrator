@@ -87,7 +87,7 @@ def test_cores_require_the_playbook_before_first_delegation():
     # The linchpin of progressive disclosure: the core only summarizes,
     # so a core that stops REQUIRING the playbook silently ships a chair
     # missing the research pipeline, output contract, fork cap, and
-    # verification procedure. The literal is plugin-name-namespaced —
+    # close procedure. The literal is plugin-name-namespaced —
     # pinned against plugin.json below so a rename can't orphan it.
     plugin_name = json.loads(
         (REPO / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["name"]
@@ -194,7 +194,9 @@ def test_preserved_decisions_survive_the_diet():
         text = _flat(_instr(name))
         assert "no haiku" in text, f"{name}: haiku ban dropped"
         assert "fork (≤2/session" in text, f"{name}: fork cap dropped"
-        assert "EVERY close gets a FRESH" in text, f"{name}: fresh-eyes-every-close dropped"
+        # v0.24.0 removed the fresh-eyes verifier: only questions gate the work.
+        assert "fresh" not in text.lower(), f"{name}: fresh-eyes verifier came back"
+        assert "V. " not in text, f"{name}: V. ledger item came back"
         assert "./.workflow/LEDGER*.md" in text, f"{name}: ledger path dropped"
         # v0.15.0 additions: the report diet and the batching rule.
         assert "≤40 lines" in text, f"{name}: report line cap dropped"

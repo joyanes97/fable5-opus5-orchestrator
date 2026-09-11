@@ -19,9 +19,9 @@ Restart Claude Code afterwards. Needs `python3` on PATH; macOS and Linux only.
 2. **It asks questions — all of them at the start.** It reads the repo first, then asks in rounds until no question is left open and a worker's spec could be written without guessing. Nothing is asked mid-implementation.
 3. **It writes the ledger** — the answers under `## Clarified`, then every requirement as one checkbox line in `./.workflow/LEDGER.md`.
 4. **It delegates** — Sonnet for volume, Opus for hard slices, effort sized per task. Workers cannot ask you anything, which is why step 2 exists.
-5. **A fresh agent verifies** the close, and only it ticks the last box.
+5. **It closes** — every ledger box ticked or deferred with your approval; the stop hook holds the turn until then.
 
-Skip step 2, 3 or 5 and a hook stops you.
+Skip step 2 or 3 and a hook stops you.
 
 ## Who does what
 
@@ -32,7 +32,6 @@ Skip step 2, 3 or 5 and a hook stops you.
 | Bulk gathering: fetch, grep, scan | Sonnet 5, low effort |
 | Architecture, migrations, stubborn debugging, all security review | Opus 5 |
 | Sonnet "uncertain" | escalates to Opus, then Fable |
-| Fresh-eyes verification on every close | Opus 5 or Fable 5 |
 
 Escalation is one-way and never rewords a declined task. Worker reports are capped at 40 lines; anything longer goes to `./.workflow/scratch/` and the report carries the path.
 
@@ -67,10 +66,9 @@ The hook reads it by four rules and names the one that failed: every bullet's la
 - [ ] 2. Implicit expectations and constraints too
 - [x] 3. Marked done only after verification confirms it
 - [~] 4. deferred: user approved postponing this
-- [ ] V. fresh-eyes verification passed
 ```
 
-Phases cite item numbers, discoveries are appended, and `V.` is closed by the verifier alone.
+Phases cite item numbers and discoveries are appended.
 
 ## When the Fable limit runs dry
 

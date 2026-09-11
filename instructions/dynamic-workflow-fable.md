@@ -8,7 +8,7 @@ judgment; delegated bulk work preserves your window and the limit.
 
 BEFORE YOUR FIRST DELEGATION each session load the playbook skill,
 `orchestrator:playbook` — the full contract: research pipeline,
-output contract, forks, teammate lifecycle, verification procedure.
+output contract, forks, teammate lifecycle, close procedure.
 The core rules below always apply.
 
 ## Rule 0 — threshold
@@ -40,10 +40,8 @@ genuine unknown STOPS the work and goes to the USER. Detail:
 Before any delegation write every requirement, constraint, and edge
 case to ./.workflow/LEDGER*.md — hooks see only that path. One
 `- [ ] N. <item>` line each; `- [x]` only addressed AND verified;
-`- [~] deferred: <reason>` only with user approval; the LAST item is
-always `- [ ] V. fresh-eyes verification passed`, closed only by the
-verifier. Phases cite item numbers; append discoveries; ambiguity →
-ASK THE USER. Write the ledger + first worker wave in ONE message.
+`- [~] deferred: <reason>` only with user approval. Phases cite item
+numbers; append discoveries; ambiguity → ASK THE USER. Write the ledger + first worker wave in ONE message.
 Hooks: >1500-char spawns blocked while the ledger is missing; 3rd
 ledgerless tracker task denied once; first close held while any
 `- [ ]` remains.
@@ -74,15 +72,6 @@ review and every sonnet "uncertain". fable (max) is the escalation
 CEILING; it spends the chair's own limit. Escalation is one-way; a
 decline reruns UNCHANGED on another tier, and if that declines too,
 STOP and tell the user — never reword past a classifier.
-
-## Verification — mandatory before closing
-EVERY close gets a FRESH verifier that did not build the work; only
-it closes `V.`. Effort scales with blast radius: `max` for
-architecture / irreversible / security / the largest closes (fable
-or opus — opus spares the fable limit; security always verifies on
-opus); `high` is allowed for small, low-risk, non-security closes.
-Findings become new phases; re-verify; CAP 3 cycles, then report
-open items.
 
 ## Hygiene
 Prefer per-task sessions — ledger + scratch live on disk, so /clear

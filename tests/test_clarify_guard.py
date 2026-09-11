@@ -340,7 +340,7 @@ def test_missing_ledger_reports_the_ledger_gate(repo_dir):
 def test_stale_clarified_ledger_reports_staleness(repo_dir, tmp_path):
     import os
     write_marker(tmp_path, time.time())
-    ledger = write_ledger(repo_dir, "- [x] 1. done\n- [x] V. verified\n")
+    ledger = write_ledger(repo_dir, "- [x] 1. done\n- [x] 2. checked\n")
     old = time.time() - 3600
     os.utime(ledger, (old, old))
     result = run_hook(SCRIPT, spawn_payload(repo_dir), tmpdir=tmp_path)
@@ -431,7 +431,7 @@ def test_any_checkbox_ends_the_section(repo_dir):
     # bypass of the whole gate. Every checkbox form ends the section,
     # and the deny text says so instead of claiming the file is empty.
     for bullet in ("- [ ] 1. item", "* [x] 2. done", "+ [~] 3. deferred: ok",
-                   "- [x] V. verified", "- [ ] fix login", "- [x] Q1: beside it",
+                   "- [x] 2. checked", "- [ ] fix login", "- [x] Q1: beside it",
                    "-  [ ] 1. two spaces", "- [>] 1. odd marker"):
         write_raw_ledger(repo_dir, f"## Clarified\n\n{bullet}\n")
         result = run_hook(SCRIPT, spawn_payload(repo_dir))

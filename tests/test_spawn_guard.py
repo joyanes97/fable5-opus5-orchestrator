@@ -339,7 +339,7 @@ def test_parallel_task_creates_deny_exactly_once(repo_dir, tmp_path):
 
 def _stale_completed_ledger(repo, age=3600):
     import os
-    ledger = write_ledger(repo, "- [x] 1. done\n- [x] V. verified\n")
+    ledger = write_ledger(repo, "- [x] 1. done\n- [x] 2. checked\n")
     old = time.time() - age
     os.utime(ledger, (old, old))
     return ledger

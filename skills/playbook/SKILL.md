@@ -1,6 +1,6 @@
 ---
 name: playbook
-description: Orchestrator playbook — the full delegation contract (research pipeline, subagent output contract, spawn economics, forks, teammate lifecycle, verification procedure, chair hygiene). The chair MUST load this before its first delegation of every session; the injected core profile only summarizes it.
+description: Orchestrator playbook — the full delegation contract (research pipeline, subagent output contract, spawn economics, forks, teammate lifecycle, chair hygiene). The chair MUST load this before its first delegation of every session; the injected core profile only summarizes it.
 ---
 
 # Orchestrator Playbook
@@ -55,8 +55,8 @@ disguised solo work — phases go to workers with specs.
 
 ## Named teammates — the user watches the work
 
-NAME every substantive worker (implementation, review, research,
-verification): named teammates run in tmux panes the user watches
+NAME every substantive worker (implementation, review, research):
+named teammates run in tmux panes the user watches
 live, and their lifecycle states reach the chat; an unnamed subagent
 is a silent spinner until it returns. Only sub-minute lookups (a
 grep, one read/fetch) stay unnamed. Steer a running teammate
@@ -65,17 +65,6 @@ follow-up planned, dismiss it: SendMessage
 `{"type": "shutdown_request"}`. Dismissal is final, so dismiss only
 after processing the output — and never leave finished teammates
 stacked (the plugin reaps forgotten panes).
-
-## Verification procedure
-
-The verifier is FRESH — it has not worked on the task. Give it the
-original request, the ledger path, and the work-product paths
-(diffs, reports — not the raw scratch dump). It reads from disk; its
-only job is to find what is missing, wrong, or unaddressed, item by
-item — and only it closes the `V.` ledger item. Its effort follows
-the core profile's blast-radius scale. Findings become new phases;
-re-verify after fixes. CAP: 3 verify→fix cycles, then STOP and
-report the open items to the user.
 
 ## Chair context hygiene
 

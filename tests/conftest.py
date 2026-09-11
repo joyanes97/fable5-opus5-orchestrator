@@ -39,7 +39,7 @@ def _chair_ps_dir():
     The hooks answer "am I a teammate?" by walking the REAL process
     tree for `--agent-id`. That makes the suite's result depend on WHO
     RAN IT: from inside a named agent-teams worker — a teammate running
-    the tests, or a fresh-eyes verifier checking a release — every hook
+    the tests, or a reviewer checking a release — every hook
     correctly decides "teammate", skips its chair behaviour, and ~40
     tests fail for a reason that has nothing to do with the code under
     test. Pinning the ambient here is the same move as the
